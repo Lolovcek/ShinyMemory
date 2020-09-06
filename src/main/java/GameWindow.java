@@ -5,6 +5,7 @@ import org.lwjgl.opengl.GL;
 import org.lwjgl.system.MemoryStack;
 
 import java.nio.IntBuffer;
+import java.util.Arrays;
 
 import static org.lwjgl.glfw.Callbacks.glfwFreeCallbacks;
 import static org.lwjgl.glfw.GLFW.*;
@@ -19,6 +20,9 @@ public class GameWindow {
     private int height;
     private String title;
     private long glfwWindow;
+    private int fps;
+    private long currentTime;
+    private Input input;
 
     private static GameWindow gameWindow = null;
 
@@ -35,15 +39,26 @@ public class GameWindow {
         return GameWindow.gameWindow;
     }
 
+
     public void run() {
         System.out.println("Hello LWJGL " + Version.getVersion() + "!");
 
         init();
-        loop();
 
+        // Run the rendering loop until the user has attempted to close
+        // the window or has pressed the ESCAPE key.
+        while (!glfwWindowShouldClose(this.glfwWindow)) {
+            loop();
+            if (Input.isKeyDown(GLFW_KEY_ESCAPE)) {
+                return;
+            }
+        }
         // Free the window callbacks and destroy the window
-        glfwFreeCallbacks(glfwWindow);
-        glfwDestroyWindow(glfwWindow);
+        glfwFreeCallbacks(this.glfwWindow);
+        glfwDestroyWindow(this.glfwWindow);
+
+        // Destroys the input class
+        destroyInput();
 
         // Terminate GLFW and free the error callback
         glfwTerminate();
@@ -61,21 +76,30 @@ public class GameWindow {
         if ( !glfwInit() )
             throw new IllegalStateException("Unable to initialize GLFW");
 
+        // Create input singleton
+        this.input = Input.getInput();
+
         // Configure GLFW
         glfwDefaultWindowHints(); // optional, the current window hints are already the default
         glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE); // the window will stay hidden after creation
         glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); // the window will be resizable
 
         // Create the window
-        glfwWindow = glfwCreateWindow(this.width, this.height, "Hello World!", NULL, NULL);
-        if ( glfwWindow == NULL )
+        this.glfwWindow = glfwCreateWindow(this.width, this.height, this.title, NULL, NULL);
+        if ( this.glfwWindow == NULL )
             throw new RuntimeException("Failed to create the GLFW window");
 
         // Setup a key callback. It will be called every time a key is pressed, repeated or released.
-        glfwSetKeyCallback(glfwWindow, (window, key, scancode, action, mods) -> {
+        glfwSetKeyCallback(this.glfwWindow, (window, key, scancode, action, mods) -> {
             if ( key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE )
                 glfwSetWindowShouldClose(window, true); // We will detect this in the rendering loop
         });
+
+        // Set inputs.
+        glfwSetKeyCallback(this.glfwWindow, this.input.getKeyCallback());
+        glfwSetCursorPosCallback(this.glfwWindow, this.input.getCursorPosCallback());
+        glfwSetMouseButtonCallback(this.glfwWindow, this.input.getMouseButtonCallback());
+
 
         // Get the thread stack and push a new frame
         try ( MemoryStack stack = stackPush() ) {
@@ -83,26 +107,28 @@ public class GameWindow {
             IntBuffer pHeight = stack.mallocInt(1); // int*
 
             // Get the window size passed to glfwCreateWindow
-            glfwGetWindowSize(glfwWindow, pWidth, pHeight);
+            glfwGetWindowSize(this.glfwWindow, pWidth, pHeight);
 
             // Get the resolution of the primary monitor
             GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
 
             // Center the window
             glfwSetWindowPos(
-                    glfwWindow,
+                    this.glfwWindow,
                     (vidmode.width() - pWidth.get(0)) / 2,
                     (vidmode.height() - pHeight.get(0)) / 2
             );
         } // the stack frame is popped automatically
 
         // Make the OpenGL context current
-        glfwMakeContextCurrent(glfwWindow);
+        glfwMakeContextCurrent(this.glfwWindow);
         // Enable v-sync
         glfwSwapInterval(1);
 
         // Make the window visible
-        glfwShowWindow(glfwWindow);
+        glfwShowWindow(this.glfwWindow);
+
+        this.currentTime = System.currentTimeMillis();
     }
 
     private void loop() {
@@ -116,19 +142,34 @@ public class GameWindow {
         // Set the clear color
         glClearColor(1.0f, 0.0f, 0.0f, 0.0f);
 
-        // Run the rendering loop until the user has attempted to close
-        // the window or has pressed the ESCAPE key.
-        while ( !glfwWindowShouldClose(glfwWindow) ) {
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear the framebuffer
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear the framebuffer
 
-            glfwSwapBuffers(glfwWindow); // swap the color buffers
+        glfwSwapBuffers(this.glfwWindow); // swap the color buffers
 
-            // Poll for window events. The key callback above will only be
-            // invoked during this call.
-            glfwPollEvents();
+        // Poll for window events. The key callback above will only be
+        // invoked during this call.
+        glfwPollEvents();
+
+        this.fps++;
+        if (System.currentTimeMillis() > currentTime + 1000) {
+            this.currentTime = System.currentTimeMillis();
+            glfwSetWindowTitle(this.glfwWindow, getTitle() + " | FPS: " + this.fps);
+            this.fps = 0;
         }
+
+        if (Input.isMouseButtonDown(GLFW_MOUSE_BUTTON_LEFT)) {
+            System.out.println("X: " + this.input.getMouseX() + " | Y: " + this.input.getMouseY());
+        }
+
+        if (Input.isKeyDown(GLFW_KEY_A)) {
+            System.out.println("Key A pressed!");
+        }
+
     }
 
+    public void destroyInput() {
+        this.input.destroy();
+    }
 
     public int getWidth() {
         return width;
