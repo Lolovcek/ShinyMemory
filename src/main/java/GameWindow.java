@@ -1,6 +1,7 @@
 import org.lwjgl.Version;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.glfw.GLFWVidMode;
+import org.lwjgl.glfw.GLFWWindowSizeCallback;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.system.MemoryStack;
 
@@ -18,13 +19,24 @@ public class GameWindow {
 
     private int width;
     private int height;
-    private String title;
-    private long glfwWindow;
+    private int[] windowPosX = new int[1];
+    private int[] windowPosY = new int[1];
+
     private int fps;
+
+    private long glfwWindow;
     private long currentTime;
-    private Input input;
+    private float bgR = 0f;
+    private float bgG = 0f;
+    private float bgB = 0f;
+    private final String title;
+    private boolean isResized;
+    private boolean isFullscreen = false;
+
 
     private static GameWindow gameWindow = null;
+    private Input input;
+    private GLFWWindowSizeCallback sizeCallback;
 
     private GameWindow() {
         this.width = 1920;
@@ -33,12 +45,11 @@ public class GameWindow {
     }
 
     public static GameWindow getGameWindow() {
-        if (gameWindow == null) {
-            gameWindow = new GameWindow();
-        }
-        return GameWindow.gameWindow;
+            if (gameWindow == null) {
+                gameWindow = new GameWindow();
+            }
+            return GameWindow.gameWindow;
     }
-
 
     public void run() {
         System.out.println("Hello LWJGL " + Version.getVersion() + "!");
@@ -47,18 +58,19 @@ public class GameWindow {
 
         // Run the rendering loop until the user has attempted to close
         // the window or has pressed the ESCAPE key.
-        while (!glfwWindowShouldClose(this.glfwWindow)) {
+        while (!glfwWindowShouldClose(this.glfwWindow) && !Input.isKeyDown(GLFW_KEY_ESCAPE)) {
             loop();
-            if (Input.isKeyDown(GLFW_KEY_ESCAPE)) {
-                return;
+            if (Input.isKeyDown(GLFW_KEY_F11)) {
+                System.out.println("Setting to fullscreen!");
+                setFullscreen(!this.isFullscreen);
             }
         }
         // Free the window callbacks and destroy the window
         glfwFreeCallbacks(this.glfwWindow);
         glfwDestroyWindow(this.glfwWindow);
 
-        // Destroys the input class
-        destroyInput();
+        // Destroys instances and frees adresses
+        destroyAndFree();
 
         // Terminate GLFW and free the error callback
         glfwTerminate();
@@ -85,7 +97,7 @@ public class GameWindow {
         glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); // the window will be resizable
 
         // Create the window
-        this.glfwWindow = glfwCreateWindow(this.width, this.height, this.title, NULL, NULL);
+        this.glfwWindow = glfwCreateWindow(this.width, this.height, this.title, isFullscreen() ? glfwGetPrimaryMonitor() : NULL, NULL);
         if ( this.glfwWindow == NULL )
             throw new RuntimeException("Failed to create the GLFW window");
 
@@ -95,10 +107,8 @@ public class GameWindow {
                 glfwSetWindowShouldClose(window, true); // We will detect this in the rendering loop
         });
 
-        // Set inputs.
-        glfwSetKeyCallback(this.glfwWindow, this.input.getKeyCallback());
-        glfwSetCursorPosCallback(this.glfwWindow, this.input.getCursorPosCallback());
-        glfwSetMouseButtonCallback(this.glfwWindow, this.input.getMouseButtonCallback());
+        // Set callbacks
+        createCallbacks();
 
 
         // Get the thread stack and push a new frame
@@ -106,18 +116,17 @@ public class GameWindow {
             IntBuffer pWidth = stack.mallocInt(1); // int*
             IntBuffer pHeight = stack.mallocInt(1); // int*
 
+
             // Get the window size passed to glfwCreateWindow
             glfwGetWindowSize(this.glfwWindow, pWidth, pHeight);
 
             // Get the resolution of the primary monitor
             GLFWVidMode vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
 
+            this.windowPosX[0] = (vidmode.width() - pWidth.get(0)) / 2;
+            this.windowPosY[0] = (vidmode.height() - pHeight.get(0)) / 2;
             // Center the window
-            glfwSetWindowPos(
-                    this.glfwWindow,
-                    (vidmode.width() - pWidth.get(0)) / 2,
-                    (vidmode.height() - pHeight.get(0)) / 2
-            );
+            glfwSetWindowPos(this.glfwWindow, this.windowPosX[0], this.windowPosY[0]);
         } // the stack frame is popped automatically
 
         // Make the OpenGL context current
@@ -140,7 +149,7 @@ public class GameWindow {
         GL.createCapabilities();
 
         // Set the clear color
-        glClearColor(1.0f, 0.0f, 0.0f, 0.0f);
+        glClearColor(this.bgR, this.bgG, this.bgB, 0.0f);
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear the framebuffer
 
@@ -150,6 +159,11 @@ public class GameWindow {
         // invoked during this call.
         glfwPollEvents();
 
+        if (this.isResized) {
+            glViewport(0,0, getWidth(), getHeight());
+            this.isResized = false;
+        }
+
         this.fps++;
         if (System.currentTimeMillis() > currentTime + 1000) {
             this.currentTime = System.currentTimeMillis();
@@ -158,6 +172,7 @@ public class GameWindow {
         }
 
         if (Input.isMouseButtonDown(GLFW_MOUSE_BUTTON_LEFT)) {
+            setBackgroundColours((float) java.lang.Math.random(),(float) java.lang.Math.random(),(float) java.lang.Math.random());
             System.out.println("X: " + this.input.getMouseX() + " | Y: " + this.input.getMouseY());
         }
 
@@ -167,12 +182,52 @@ public class GameWindow {
 
     }
 
-    public void destroyInput() {
+    private void createCallbacks() {
+        this.sizeCallback = new GLFWWindowSizeCallback() {
+            @Override
+            public void invoke(long window, int width, int height) {
+                setWidth(width);
+                setHeight(height);
+                isResized = true;
+                System.out.println("The new dimensions are " + width + " x " + height);
+            }
+        };
+        glfwSetWindowSizeCallback(this.glfwWindow, this.sizeCallback);
+        glfwSetScrollCallback(this.glfwWindow, this.input.getScrollCallback());
+        glfwSetKeyCallback(this.glfwWindow, this.input.getKeyCallback());
+        glfwSetCursorPosCallback(this.glfwWindow, this.input.getCursorPosCallback());
+        glfwSetMouseButtonCallback(this.glfwWindow, this.input.getMouseButtonCallback());
+    }
+
+    private void setBackgroundColours(float r, float g, float b) {
+        this.bgR = r;
+        this.bgG = g;
+        this.bgB = b;
+    }
+
+    public boolean isFullscreen() {
+        return this.isFullscreen;
+    }
+
+    public void setFullscreen(boolean fullscreen) {
+        this.isFullscreen = fullscreen;
+        this.isResized = true;
+        if (this.isFullscreen) {
+            glfwGetWindowPos(this.glfwWindow, this.windowPosX, this.windowPosY);
+            glfwSetWindowMonitor(this.glfwWindow, glfwGetPrimaryMonitor(), 0, 0, getWidth(), getHeight(), 0);
+        }
+        else {
+            glfwSetWindowMonitor(this.glfwWindow, 0, this.windowPosX[0], this.windowPosY[0], getWidth(), getHeight(), 0);
+        }
+    }
+
+    public void destroyAndFree() {
         this.input.destroy();
+        this.sizeCallback.free();
     }
 
     public int getWidth() {
-        return width;
+        return this.width;
     }
 
     public void setWidth(int width) {
@@ -180,7 +235,7 @@ public class GameWindow {
     }
 
     public int getHeight() {
-        return height;
+        return this.height;
     }
 
     public void setHeight(int height) {
@@ -188,11 +243,7 @@ public class GameWindow {
     }
 
     public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
+        return this.title;
     }
 
 }
