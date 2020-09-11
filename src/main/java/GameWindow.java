@@ -1,3 +1,6 @@
+import Scene.GameScene;
+import Scene.MenuScene;
+import Scene.Scene;
 import listeners.*;
 
 import org.lwjgl.Version;
@@ -5,6 +8,7 @@ import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.glfw.GLFWVidMode;
 import org.lwjgl.glfw.GLFWWindowSizeCallback;
 import org.lwjgl.opengl.GL;
+import org.lwjgl.system.CallbackI;
 import org.lwjgl.system.MemoryStack;
 import utils.Time;
 
@@ -24,10 +28,7 @@ public class GameWindow {
     private int[] windowPosX = new int[1];
     private int[] windowPosY = new int[1];
 
-    private int fps;
-
     private long glfwWindow;
-    private long currentTime;
     private float bgR = 0f;
     private float bgG = 0f;
     private float bgB = 0f;
@@ -38,6 +39,7 @@ public class GameWindow {
 
     private static GameWindow gameWindow = null;
     private GLFWWindowSizeCallback sizeCallback;
+    private static Scene currentScene;
 
     private GameWindow() {
         this.width = 1920;
@@ -59,13 +61,7 @@ public class GameWindow {
 
         // Run the rendering loop until the user has attempted to close
         // the window or has pressed the ESCAPE key.
-        while (!glfwWindowShouldClose(this.glfwWindow) && !KeyListener.isKeyPressed(GLFW_KEY_ESCAPE)) {
-            loop();
-            if (KeyListener.isKeyPressed(GLFW_KEY_F11)) {
-                setFullscreen(!this.isFullscreen);
-                System.out.println("Setting to fullscreen is " + this.isFullscreen);
-            }
-        }
+        loop();
         // Free the window callbacks and destroy the window
         glfwFreeCallbacks(this.glfwWindow);
         glfwDestroyWindow(this.glfwWindow);
@@ -141,44 +137,68 @@ public class GameWindow {
         // bindings available for use.
         GL.createCapabilities();
 
-        this.currentTime = System.currentTimeMillis();
+        // Change to MenuScene on init
+        changeScene(0);
     }
 
     private void loop() {
         float beginTime = Time.getTime();
+        float endTime;
+        float dt = 1.0f;
 
-        // Poll for window events. The key callback above will only be
-        // invoked during this call.
-        glfwPollEvents();
+        while (!glfwWindowShouldClose(this.glfwWindow) && !KeyListener.isKeyPressed(GLFW_KEY_ESCAPE)) {
+            if (KeyListener.isKeyPressed(GLFW_KEY_F11)) {
+                setFullscreen(!this.isFullscreen);
+                System.out.println("Setting to fullscreen is " + this.isFullscreen);
+            }
 
-        // Set the clear color
-        glClearColor(this.bgR, this.bgG, this.bgB, 0.0f);
 
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear the framebuffer
+            // Poll for window events. The key callback above will only be
+            // invoked during this call.
+            glfwPollEvents();
 
-        glfwSwapBuffers(this.glfwWindow); // swap the color buffers
+            // Set the clear color
+            glClearColor(this.bgR, this.bgG, this.bgB, 0.0f);
 
-        if (this.isResized) {
-            glViewport(0,0, getWidth(), getHeight());
-            this.isResized = false;
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear the framebuffer
+
+            glfwSwapBuffers(this.glfwWindow); // swap the color buffers
+
+            if (this.isResized) {
+                glViewport(0, 0, getWidth(), getHeight());
+                this.isResized = false;
+            }
+
+            if (dt >= 0) {
+                currentScene.update(dt);
+            }
+
+            if (KeyListener.isKeyPressed(GLFW_KEY_A)) {
+                System.out.println("Scene changed to GameScene: 1");
+
+                changeScene(1);
+            }
+            if (KeyListener.isKeyPressed(GLFW_KEY_D)) {
+                System.out.println("Scene changed to MenuScene: 0");
+                changeScene(0);
+            }
+            endTime = Time.getTime();
+            dt = endTime - beginTime;
+            beginTime = endTime;
         }
+    }
 
-        this.fps++;
-        if (System.currentTimeMillis() > currentTime + 1000) {
-            this.currentTime = System.currentTimeMillis();
-            glfwSetWindowTitle(this.glfwWindow, getTitle() + " | FPS: " + this.fps);
-            this.fps = 0;
+    public static void changeScene(int newScene) {
+        switch (newScene) {
+            case 0:
+                currentScene = new MenuScene();
+                break;
+            case 1:
+                currentScene = new GameScene();
+                break;
+            default:
+                assert false : "Unknown scene '" + newScene + "'";
         }
-        if (MouseListener.mouseButtonDown(GLFW_MOUSE_BUTTON_LEFT)) {
-            setBackgroundColours((float) java.lang.Math.random(),(float) java.lang.Math.random(),(float) java.lang.Math.random());
-            System.out.println("X: " + MouseListener.getX() + " | Y: " + MouseListener.getY());
-        }
-
-        if (KeyListener.isKeyPressed(GLFW_KEY_A)) {
-            System.out.println("Key A pressed!");
-        }
-        float endTime = Time.getTime();
-        float dt = endTime - beginTime;
     }
 
     private void createCallbacks() {
