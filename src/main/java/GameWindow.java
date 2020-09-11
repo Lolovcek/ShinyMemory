@@ -1,12 +1,14 @@
+import listeners.*;
+
 import org.lwjgl.Version;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.glfw.GLFWVidMode;
 import org.lwjgl.glfw.GLFWWindowSizeCallback;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.system.MemoryStack;
+import utils.Time;
 
 import java.nio.IntBuffer;
-import java.util.Arrays;
 
 import static org.lwjgl.glfw.Callbacks.glfwFreeCallbacks;
 import static org.lwjgl.glfw.GLFW.*;
@@ -35,7 +37,6 @@ public class GameWindow {
 
 
     private static GameWindow gameWindow = null;
-    private Input input;
     private GLFWWindowSizeCallback sizeCallback;
 
     private GameWindow() {
@@ -58,11 +59,11 @@ public class GameWindow {
 
         // Run the rendering loop until the user has attempted to close
         // the window or has pressed the ESCAPE key.
-        while (!glfwWindowShouldClose(this.glfwWindow) && !Input.isKeyDown(GLFW_KEY_ESCAPE)) {
+        while (!glfwWindowShouldClose(this.glfwWindow) && !KeyListener.isKeyPressed(GLFW_KEY_ESCAPE)) {
             loop();
-            if (Input.isKeyDown(GLFW_KEY_F11)) {
-                System.out.println("Setting to fullscreen!");
+            if (KeyListener.isKeyPressed(GLFW_KEY_F11)) {
                 setFullscreen(!this.isFullscreen);
+                System.out.println("Setting to fullscreen is " + this.isFullscreen);
             }
         }
         // Free the window callbacks and destroy the window
@@ -82,14 +83,11 @@ public class GameWindow {
         // will print the error message in System.err.
         GLFWErrorCallback.createPrint(System.err).set();
 
-        glfwInitHint(GLFW_COCOA_MENUBAR, GLFW_TRUE);
-
         // Initialize GLFW. Most GLFW functions will not work before doing this.
         if ( !glfwInit() )
             throw new IllegalStateException("Unable to initialize GLFW");
 
         // Create input singleton
-        this.input = Input.getInput();
 
         // Configure GLFW
         glfwDefaultWindowHints(); // optional, the current window hints are already the default
@@ -97,7 +95,7 @@ public class GameWindow {
         glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE); // the window will be resizable
 
         // Create the window
-        this.glfwWindow = glfwCreateWindow(this.width, this.height, this.title, isFullscreen() ? glfwGetPrimaryMonitor() : NULL, NULL);
+        this.glfwWindow = glfwCreateWindow(this.width, this.height, this.title, this.isFullscreen ? glfwGetPrimaryMonitor() : NULL, NULL);
         if ( this.glfwWindow == NULL )
             throw new RuntimeException("Failed to create the GLFW window");
 
@@ -109,7 +107,6 @@ public class GameWindow {
 
         // Set callbacks
         createCallbacks();
-
 
         // Get the thread stack and push a new frame
         try ( MemoryStack stack = stackPush() ) {
@@ -137,10 +134,6 @@ public class GameWindow {
         // Make the window visible
         glfwShowWindow(this.glfwWindow);
 
-        this.currentTime = System.currentTimeMillis();
-    }
-
-    private void loop() {
         // This line is critical for LWJGL's interoperation with GLFW's
         // OpenGL context, or any context that is managed externally.
         // LWJGL detects the context that is current in the current thread,
@@ -148,16 +141,22 @@ public class GameWindow {
         // bindings available for use.
         GL.createCapabilities();
 
+        this.currentTime = System.currentTimeMillis();
+    }
+
+    private void loop() {
+        float beginTime = Time.getTime();
+
+        // Poll for window events. The key callback above will only be
+        // invoked during this call.
+        glfwPollEvents();
+
         // Set the clear color
         glClearColor(this.bgR, this.bgG, this.bgB, 0.0f);
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear the framebuffer
 
         glfwSwapBuffers(this.glfwWindow); // swap the color buffers
-
-        // Poll for window events. The key callback above will only be
-        // invoked during this call.
-        glfwPollEvents();
 
         if (this.isResized) {
             glViewport(0,0, getWidth(), getHeight());
@@ -170,16 +169,16 @@ public class GameWindow {
             glfwSetWindowTitle(this.glfwWindow, getTitle() + " | FPS: " + this.fps);
             this.fps = 0;
         }
-
-        if (Input.isMouseButtonDown(GLFW_MOUSE_BUTTON_LEFT)) {
+        if (MouseListener.mouseButtonDown(GLFW_MOUSE_BUTTON_LEFT)) {
             setBackgroundColours((float) java.lang.Math.random(),(float) java.lang.Math.random(),(float) java.lang.Math.random());
-            System.out.println("X: " + this.input.getMouseX() + " | Y: " + this.input.getMouseY());
+            System.out.println("X: " + MouseListener.getX() + " | Y: " + MouseListener.getY());
         }
 
-        if (Input.isKeyDown(GLFW_KEY_A)) {
+        if (KeyListener.isKeyPressed(GLFW_KEY_A)) {
             System.out.println("Key A pressed!");
         }
-
+        float endTime = Time.getTime();
+        float dt = endTime - beginTime;
     }
 
     private void createCallbacks() {
@@ -193,20 +192,16 @@ public class GameWindow {
             }
         };
         glfwSetWindowSizeCallback(this.glfwWindow, this.sizeCallback);
-        glfwSetScrollCallback(this.glfwWindow, this.input.getScrollCallback());
-        glfwSetKeyCallback(this.glfwWindow, this.input.getKeyCallback());
-        glfwSetCursorPosCallback(this.glfwWindow, this.input.getCursorPosCallback());
-        glfwSetMouseButtonCallback(this.glfwWindow, this.input.getMouseButtonCallback());
+        glfwSetKeyCallback(this.glfwWindow, KeyListener::keyCallback);
+        glfwSetCursorPosCallback(this.glfwWindow, MouseListener::mousePosCallBack);
+        glfwSetMouseButtonCallback(this.glfwWindow, MouseListener::mouseButtonCallback);
+        glfwSetScrollCallback(this.glfwWindow, MouseListener::mouseScrollCallback);
     }
 
     private void setBackgroundColours(float r, float g, float b) {
         this.bgR = r;
         this.bgG = g;
         this.bgB = b;
-    }
-
-    public boolean isFullscreen() {
-        return this.isFullscreen;
     }
 
     public void setFullscreen(boolean fullscreen) {
@@ -222,7 +217,6 @@ public class GameWindow {
     }
 
     public void destroyAndFree() {
-        this.input.destroy();
         this.sizeCallback.free();
     }
 
