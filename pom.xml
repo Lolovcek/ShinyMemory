@@ -343,5 +343,10 @@
             <artifactId>lwjgl-zstd</artifactId>
             <classifier>${lwjgl.natives}</classifier>
         </dependency>
+        <dependency>
+            <groupId>org.joml</groupId>
+            <artifactId>joml-jdk8</artifactId>
+            <version>1.9.25</version>
+        </dependency>
     </dependencies>
 </project>
