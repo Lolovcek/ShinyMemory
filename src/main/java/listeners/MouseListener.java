@@ -47,6 +47,15 @@ public class MouseListener {
         }
     }
 
+    public static boolean mouseButtonDown(int button) {
+        if (button < getMouseListener().mouseButtonPressed.length) {
+            return getMouseListener().mouseButtonPressed[button];
+        } else {
+            return false;
+        }
+
+    }
+
     public static void mouseScrollCallback(long window, double xOffset, double yOffset) {
         getMouseListener().scrollX = xOffset;
         getMouseListener().scrollY = yOffset;
@@ -85,14 +94,5 @@ public class MouseListener {
 
     public static boolean isDraggin() {
         return getMouseListener().isDragging;
-    }
-
-    public static boolean mouseButtonDown(int button) {
-        if (button < getMouseListener().mouseButtonPressed.length) {
-            return getMouseListener().mouseButtonPressed[button];
-        } else {
-            return false;
-        }
-
     }
 }

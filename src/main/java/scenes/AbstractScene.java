@@ -1,6 +1,10 @@
 package scenes;
 
+import camera.Camera;
+
 public abstract class AbstractScene {
+
+    protected Camera camera;
 
     public AbstractScene() {
 

@@ -1,4 +1,6 @@
 package scenes;
+import camera.Camera;
+import org.joml.Vector2f;
 import org.lwjgl.BufferUtils;
 import renderers.Shader;
 
@@ -12,9 +14,9 @@ public class GameScene extends AbstractScene {
 
     private float[] vertexArray = {
             // position               // color
-             0.5f, -0.5f, 0.0f,       1.0f, 0.0f, 0.0f, 1.0f, // Bottom right 0
-            -0.5f,  0.5f, 0.0f,       0.0f, 1.0f, 0.0f, 1.0f, // Top left     1
-             0.5f,  0.5f, 0.0f ,      0.0f, 0.0f, 1.0f, 1.0f, // Top right    2
+             100.5f, -0.5f, 0.0f,       1.0f, 0.0f, 0.0f, 1.0f, // Bottom right 0
+            -0.5f,  100.5f, 0.0f,       0.0f, 1.0f, 0.0f, 1.0f, // Top left     1
+             100.5f,  100.5f, 0.0f ,      0.0f, 0.0f, 1.0f, 1.0f, // Top right    2
             -0.5f, -0.5f, 0.0f,       0.0f, 0.0f, 0.0f, 1.0f, // Bottom left  3
     };
 
@@ -28,24 +30,50 @@ public class GameScene extends AbstractScene {
 
     private Shader defaultShader;
 
+    private boolean touchedLeftSide = true, touchedRightSide = false;
+
     public GameScene() {
 
     }
 
     @Override
     public void init() {
-        defaultShader = new Shader("assets/shaders/defaultShader.glsl");
-        defaultShader.compile();
+        this.camera = new Camera(new Vector2f());
 
-        this.vaoID = defaultShader.prepare(this.vertexArray, this.elementArray, 3, 4, 0, 1);
+        this.defaultShader = new Shader("assets/shaders/defaultShader.glsl");
+        this.defaultShader.compile();
+
+        this.vaoID = this.defaultShader.prepare(this.vertexArray, this.elementArray, 3, 4, 0, 1);
     }
 
     @Override
     public void update(float dt) {
-        defaultShader.use();
+        float temp = dt * 1000.0f;
+        if (touchedLeftSide) {
+            if ((this.camera.position.x - temp) <= -10230) {
+                this.camera.position.x = -10230;
+                touchedLeftSide = false;
+                touchedRightSide = true;
+                System.out.println("Touched right side at " + this.camera.position.x + " and temp is " + temp);
+            } else {
+                this.camera.position.x -= temp;
+            }
+        }
+        if (touchedRightSide) {
+            if ((this.camera.position.x + temp) >= 0) {
+                this.camera.position.x = 0;
+                touchedLeftSide = true;
+                touchedRightSide = false;
+                System.out.println("Touched left side at " + this.camera.position.x + " and temp is " + temp);
+            }
+            this.camera.position.x += temp;
+        }
+        this.defaultShader.use();
+        this.defaultShader.uploadMat4f("uProjectionMatrix", camera.getProjectionMatrix());
+        this.defaultShader.uploadMat4f("uViewMatrix", camera.getViewMatrix());
 
-        defaultShader.draw(this.vaoID, this.elementArray.length, 0, 1);
+        this.defaultShader.draw(this.vaoID, this.elementArray.length, 0, 1);
 
-        defaultShader.detach();
+        this.defaultShader.detach();
     }
 }
