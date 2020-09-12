@@ -1,6 +1,6 @@
 package window;
 
-import scene.*;
+import scenes.*;
 import listeners.*;
 
 import org.lwjgl.Version;
@@ -134,7 +134,7 @@ public class GameWindow {
     private void loop() {
         float beginTime = Time.getTime();
         float endTime;
-        float dt = -1;
+        float deltaTime = -1f;
 
         while (!glfwWindowShouldClose(this.glfwWindow) && !KeyListener.isKeyPressed(GLFW_KEY_ESCAPE)) {
             if (KeyListener.isKeyPressed(GLFW_KEY_F11)) {
@@ -152,13 +152,13 @@ public class GameWindow {
 
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear the framebuffer
 
-            glfwSwapBuffers(this.glfwWindow); // swap the color buffers
+            if (deltaTime >= 0) {
+                currentScene.update(deltaTime);
+            }
 
-            if (this.isResized) {
+           if (this.isResized) {
                 glViewport(0, 0, getWidth(), getHeight());
-                if (dt > 0) {
-                    System.out.println("FPS is " + Math.round(1/dt));
-                }
+
                 System.out.println("Window resolution is " + getWidth() + "x" + getHeight());
                 this.isResized = false;
             }
@@ -172,8 +172,11 @@ public class GameWindow {
                 System.out.println("Scene changed to MenuScene: 0");
                 changeScene(0);
             }
+            glfwSwapBuffers(this.glfwWindow); // swap the color buffers
+
+
             endTime = Time.getTime();
-            dt = endTime - beginTime;
+            deltaTime = endTime - beginTime;
             beginTime = endTime;
         }
     }
