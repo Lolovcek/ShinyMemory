@@ -1,4 +1,4 @@
-package scene;
+package scenes;
 
 public abstract class AbstractScene {
 

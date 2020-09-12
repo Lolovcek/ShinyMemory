@@ -9,7 +9,6 @@
         fragmentColor = attributeColor;
         gl_Position = vec4(attributePos, 1.0);
     }
-
     #type fragment
     #version 330 core
 

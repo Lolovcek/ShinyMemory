@@ -1,4 +1,4 @@
-package scene;
+package scenes;
 
 public class MenuScene extends AbstractScene {
 
