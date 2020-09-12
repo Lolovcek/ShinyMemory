@@ -1,14 +1,12 @@
-import Scene.GameScene;
-import Scene.MenuScene;
-import Scene.Scene;
+package window;
+
+import scene.*;
 import listeners.*;
 
 import org.lwjgl.Version;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.glfw.GLFWVidMode;
-import org.lwjgl.glfw.GLFWWindowSizeCallback;
 import org.lwjgl.opengl.GL;
-import org.lwjgl.system.CallbackI;
 import org.lwjgl.system.MemoryStack;
 import utils.Time;
 
@@ -29,29 +27,32 @@ public class GameWindow {
     private int[] windowPosY = new int[1];
 
     private long glfwWindow;
-    private float bgR = 0f;
-    private float bgG = 0f;
-    private float bgB = 0f;
+
+    private float r = 1f;
+    private float g = 1f;
+    private float b = 1f;
+    private float alpha = 1f;
     private final String title;
     private boolean isResized;
     private boolean isFullscreen = false;
 
 
-    private static GameWindow gameWindow = null;
-    private GLFWWindowSizeCallback sizeCallback;
-    private static Scene currentScene;
+    private static GameWindow instance;
+    private static AbstractScene currentScene;
 
     private GameWindow() {
         this.width = 1920;
         this.height = 1080;
         this.title = "Shiny Memory";
+
+
     }
 
     public static GameWindow getGameWindow() {
-            if (gameWindow == null) {
-                gameWindow = new GameWindow();
+            if (GameWindow.instance == null) {
+                GameWindow.instance = new GameWindow();
             }
-            return GameWindow.gameWindow;
+            return GameWindow.instance;
     }
 
     public void run() {
@@ -66,9 +67,6 @@ public class GameWindow {
         glfwFreeCallbacks(this.glfwWindow);
         glfwDestroyWindow(this.glfwWindow);
 
-        // Destroys instances and frees adresses
-        destroyAndFree();
-
         // Terminate GLFW and free the error callback
         glfwTerminate();
         glfwSetErrorCallback(null).free();
@@ -80,10 +78,8 @@ public class GameWindow {
         GLFWErrorCallback.createPrint(System.err).set();
 
         // Initialize GLFW. Most GLFW functions will not work before doing this.
-        if ( !glfwInit() )
+        if (!glfwInit())
             throw new IllegalStateException("Unable to initialize GLFW");
-
-        // Create input singleton
 
         // Configure GLFW
         glfwDefaultWindowHints(); // optional, the current window hints are already the default
@@ -94,15 +90,6 @@ public class GameWindow {
         this.glfwWindow = glfwCreateWindow(this.width, this.height, this.title, this.isFullscreen ? glfwGetPrimaryMonitor() : NULL, NULL);
         if ( this.glfwWindow == NULL )
             throw new RuntimeException("Failed to create the GLFW window");
-
-        // Setup a key callback. It will be called every time a key is pressed, repeated or released.
-        glfwSetKeyCallback(this.glfwWindow, (window, key, scancode, action, mods) -> {
-            if ( key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE )
-                glfwSetWindowShouldClose(window, true); // We will detect this in the rendering loop
-        });
-
-        // Set callbacks
-        createCallbacks();
 
         // Get the thread stack and push a new frame
         try ( MemoryStack stack = stackPush() ) {
@@ -122,6 +109,9 @@ public class GameWindow {
             glfwSetWindowPos(this.glfwWindow, this.windowPosX[0], this.windowPosY[0]);
         } // the stack frame is popped automatically
 
+        //create callbacks
+        createCallbacks();
+
         // Make the OpenGL context current
         glfwMakeContextCurrent(this.glfwWindow);
         // Enable v-sync
@@ -138,27 +128,27 @@ public class GameWindow {
         GL.createCapabilities();
 
         // Change to MenuScene on init
-        changeScene(0);
+        changeScene(1);
     }
 
     private void loop() {
         float beginTime = Time.getTime();
         float endTime;
-        float dt = 1.0f;
+        float dt = -1;
 
         while (!glfwWindowShouldClose(this.glfwWindow) && !KeyListener.isKeyPressed(GLFW_KEY_ESCAPE)) {
             if (KeyListener.isKeyPressed(GLFW_KEY_F11)) {
                 setFullscreen(!this.isFullscreen);
+                setIsResized(true);
                 System.out.println("Setting to fullscreen is " + this.isFullscreen);
             }
-
 
             // Poll for window events. The key callback above will only be
             // invoked during this call.
             glfwPollEvents();
 
             // Set the clear color
-            glClearColor(this.bgR, this.bgG, this.bgB, 0.0f);
+            glClearColor(this.r, this.g, this.b, this.alpha);
 
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear the framebuffer
 
@@ -166,11 +156,11 @@ public class GameWindow {
 
             if (this.isResized) {
                 glViewport(0, 0, getWidth(), getHeight());
+                if (dt > 0) {
+                    System.out.println("FPS is " + Math.round(1/dt));
+                }
+                System.out.println("Window resolution is " + getWidth() + "x" + getHeight());
                 this.isResized = false;
-            }
-
-            if (dt >= 0) {
-                currentScene.update(dt);
             }
 
             if (KeyListener.isKeyPressed(GLFW_KEY_A)) {
@@ -192,41 +182,19 @@ public class GameWindow {
         switch (newScene) {
             case 0:
                 currentScene = new MenuScene();
+                currentScene.init();
                 break;
             case 1:
                 currentScene = new GameScene();
+                currentScene.init();
                 break;
             default:
                 assert false : "Unknown scene '" + newScene + "'";
         }
     }
 
-    private void createCallbacks() {
-        this.sizeCallback = new GLFWWindowSizeCallback() {
-            @Override
-            public void invoke(long window, int width, int height) {
-                setWidth(width);
-                setHeight(height);
-                isResized = true;
-                System.out.println("The new dimensions are " + width + " x " + height);
-            }
-        };
-        glfwSetWindowSizeCallback(this.glfwWindow, this.sizeCallback);
-        glfwSetKeyCallback(this.glfwWindow, KeyListener::keyCallback);
-        glfwSetCursorPosCallback(this.glfwWindow, MouseListener::mousePosCallBack);
-        glfwSetMouseButtonCallback(this.glfwWindow, MouseListener::mouseButtonCallback);
-        glfwSetScrollCallback(this.glfwWindow, MouseListener::mouseScrollCallback);
-    }
-
-    private void setBackgroundColours(float r, float g, float b) {
-        this.bgR = r;
-        this.bgG = g;
-        this.bgB = b;
-    }
-
     public void setFullscreen(boolean fullscreen) {
         this.isFullscreen = fullscreen;
-        this.isResized = true;
         if (this.isFullscreen) {
             glfwGetWindowPos(this.glfwWindow, this.windowPosX, this.windowPosY);
             glfwSetWindowMonitor(this.glfwWindow, glfwGetPrimaryMonitor(), 0, 0, getWidth(), getHeight(), 0);
@@ -236,8 +204,16 @@ public class GameWindow {
         }
     }
 
-    public void destroyAndFree() {
-        this.sizeCallback.free();
+    private void createCallbacks() {
+        glfwSetWindowSizeCallback(this.glfwWindow, WindowListener::windowCallback);
+        glfwSetKeyCallback(this.glfwWindow, KeyListener::keyCallback);
+        glfwSetCursorPosCallback(this.glfwWindow, MouseListener::mousePosCallBack);
+        glfwSetMouseButtonCallback(this.glfwWindow, MouseListener::mouseButtonCallback);
+        glfwSetScrollCallback(this.glfwWindow, MouseListener::mouseScrollCallback);
+    }
+
+    public void setIsResized(boolean value) {
+        this.isResized = value;
     }
 
     public int getWidth() {
@@ -258,6 +234,38 @@ public class GameWindow {
 
     public String getTitle() {
         return this.title;
+    }
+
+    public float getR() {
+        return r;
+    }
+
+    public void setR(float r) {
+        this.r = r;
+    }
+
+    public float getG() {
+        return g;
+    }
+
+    public void setG(float g) {
+        this.g = g;
+    }
+
+    public float getB() {
+        return b;
+    }
+
+    public void setB(float b) {
+        this.b = b;
+    }
+
+    public float getAlpha() {
+        return alpha;
+    }
+
+    public void setAlpha(float alpha) {
+        this.alpha = alpha;
     }
 
 }
