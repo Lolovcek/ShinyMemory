@@ -1,6 +1,6 @@
 package renderers;
 
-import org.joml.Matrix4f;
+import org.joml.*;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.assimp.AIAABB;
 
@@ -24,6 +24,7 @@ public class Shader {
     private String fragmentSource;
     private String filepath;
 
+    private boolean isUsed = false;
 
     /**
      *
@@ -166,17 +167,17 @@ public class Shader {
 
     /**
      *
-     * @param vertexArray               - position and color information of all vertices... (XYZ, RGBA) - per vertex
+     * @param vertexArray               - position, color, and uv coordinates information of all vertices... (XYZ, RGBA...) - per vertex
      * @param elementArray              - vertices that make up a shape
      * @param positionsSize             - amount of position information for 1 vertex
      * @param colorSize                 - amount of color information for 1 vertex
      * @param firstAttributePointer     - from defaultShader.glsl...    the location of position
-     * @param secondAttributePointer    - from defaultShader.glsl...   the location of color
-     * @param thirdAttributePointer     - from defaultShader.glsl...    future possible attribute pointer
+     * @param secondAttributePointer    - from defaultShader.glsl...    the location of color
+     * @param thirdAttributePointer     - from defaultShader.glsl...    the location of UV coordinates
      * @return - VAO address in memory
      */
-    public int prepare(float[] vertexArray, int[] elementArray, int positionsSize, int colorSize, int tempSize, int firstAttributePointer, int secondAttributePointer, int thirdAttributePointer) {
-        // Generate VAO (vertices attribute object), VBO (vertices buffer object), and EBO (element buffer object) buffer objects, and send to GPU
+    public int prepare(float[] vertexArray, int[] elementArray, int positionsSize, int colorSize, int uvSize, int firstAttributePointer, int secondAttributePointer, int thirdAttributePointer) {
+        // Generate VAO (vertex array object), VBO (vertices buffer object), and EBO (element buffer object) buffer objects, and send to GPU
         int vaoID = glGenVertexArrays();
         glBindVertexArray(vaoID);
 
@@ -198,7 +199,7 @@ public class Shader {
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, elementBuffer, GL_STATIC_DRAW);
 
         // Add the vertex attribute pointers
-        int vertexSizeBytes = (positionsSize + colorSize) * Float.BYTES;
+        int vertexSizeBytes = (positionsSize + colorSize + uvSize) * Float.BYTES;
 
         glVertexAttribPointer(firstAttributePointer, positionsSize, GL_FLOAT, false, vertexSizeBytes, 0);
         glEnableVertexAttribArray(firstAttributePointer);
@@ -206,7 +207,7 @@ public class Shader {
         glVertexAttribPointer(secondAttributePointer, colorSize, GL_FLOAT, false, vertexSizeBytes, positionsSize * Float.BYTES);
         glEnableVertexAttribArray(secondAttributePointer);
 
-        glVertexAttribPointer(secondAttributePointer, tempSize, GL_FLOAT, false, vertexSizeBytes, (positionsSize + colorSize) * Float.BYTES);
+        glVertexAttribPointer(thirdAttributePointer, uvSize, GL_FLOAT, false, vertexSizeBytes, (positionsSize + colorSize) * Float.BYTES);
         glEnableVertexAttribArray(thirdAttributePointer);
 
         return vaoID;
@@ -267,20 +268,67 @@ public class Shader {
     }
 
     public void use() {
-        // Bind shader program
-        glUseProgram(this.shaderProgramID);
-
+        if (!this.isUsed) {
+            // Bind shader program
+            glUseProgram(this.shaderProgramID);
+            this.isUsed = true;
+        }
     }
 
     public void detach() {
         glUseProgram(0);
+        this.isUsed = false;
     }
 
     public void uploadMat4f(String varName, Matrix4f mat4) {
         int varLocation = glGetUniformLocation(this.shaderProgramID, varName);
+        use();
         FloatBuffer matBuffer = BufferUtils.createFloatBuffer(16);
         mat4.get(matBuffer);
         glUniformMatrix4fv(varLocation, false, matBuffer);
     }
 
+    public void uploadMat3f(String varName, Matrix3f mat3) {
+        int varLocation = glGetUniformLocation(this.shaderProgramID, varName);
+        use();
+        FloatBuffer matBuffer = BufferUtils.createFloatBuffer(9);
+        mat3.get(matBuffer);
+        glUniformMatrix3fv(varLocation, false, matBuffer);
+    }
+
+    public void uploadVec4f(String varName, Vector4f vector4f) {
+        int varLocation = glGetUniformLocation(this.shaderProgramID, varName);
+        use();
+        glUniform4f(varLocation, vector4f.x, vector4f.y, vector4f.z, vector4f.w);
+    }
+
+    public void uploadVec3f(String varName, Vector3f vector3f) {
+        int varLocation = glGetUniformLocation(this.shaderProgramID, varName);
+        use();
+        glUniform3f(varLocation, vector3f.x, vector3f.y, vector3f.z);
+    }
+
+    public void uploadVec2f(String varName, Vector2f vector2f) {
+        int varLocation = glGetUniformLocation(this.shaderProgramID, varName);
+        use();
+        glUniform2f(varLocation, vector2f.x, vector2f.y);
+    }
+
+    public void uploadFloat(String varName, float value) {
+        int varLocation = glGetUniformLocation(this.shaderProgramID, varName);
+        use();
+        glUniform1f(varLocation, value);
+    }
+
+    public void uploadInt(String varName, int value) {
+        int varLocation = glGetUniformLocation(this.shaderProgramID, varName);
+        use();
+        glUniform1i(varLocation, value);
+    }
+
+    public void uploadTexture(String varName, int slot) {
+        int varLocation = glGetUniformLocation(this.shaderProgramID, varName);
+        use();
+        glUniform1i(varLocation, slot);
+    }
 }
