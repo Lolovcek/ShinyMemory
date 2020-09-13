@@ -14,7 +14,6 @@ public class KeyListener {
         if (KeyListener.instance == null) {
             KeyListener.instance = new KeyListener();
         }
-
         return KeyListener.instance;
     }
 

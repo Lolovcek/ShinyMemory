@@ -20,7 +20,7 @@ public class Camera {
         projectionMatrix.identity();
 
         //amount of visible grids visible at any given point in time (currently 256x256)
-        projectionMatrix.ortho(0.0f, 256.0f * 40.0f, 0.0f, 256.0f * 21.0f, 0.0f, 100.0f);
+        projectionMatrix.ortho(0.0f, 16.0f * 40.0f, 0.0f, 16.0f * 21.0f, 0.0f, 100.0f);
 
     }
 
