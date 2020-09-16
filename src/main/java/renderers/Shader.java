@@ -74,7 +74,7 @@ public class Shader {
      */
     public void compile() {
 
-        int vertexID, fragmentID;
+        int vertexID;
         // First load and compile the vertex shader
         vertexID = glCreateShader(GL_VERTEX_SHADER);
         // Pass the shader source to the GPU
@@ -90,7 +90,8 @@ public class Shader {
             assert false : "";
         }
 
-        // First load and compile the vertex shader
+        int fragmentID;
+        // First load and compile the fragment shader
         fragmentID = glCreateShader(GL_FRAGMENT_SHADER);
         // Pass the shader source to the GPU
         glShaderSource(fragmentID, this.fragmentSource);
@@ -330,5 +331,12 @@ public class Shader {
         int varLocation = glGetUniformLocation(this.shaderProgramID, varName);
         use();
         glUniform1i(varLocation, slot);
+    }
+
+    public void uploadIntArray(String varName, int[] array) {
+        int varLocation = glGetUniformLocation(this.shaderProgramID, varName);
+        use();
+        glUniform1iv(varLocation, array);
+
     }
 }

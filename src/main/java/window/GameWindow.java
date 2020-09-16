@@ -8,7 +8,6 @@ import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.glfw.GLFWVidMode;
 import org.lwjgl.opengl.GL;
 import org.lwjgl.system.MemoryStack;
-import utils.Time;
 
 import java.nio.IntBuffer;
 
@@ -132,7 +131,7 @@ public class GameWindow {
     }
 
     private void loop() {
-        float beginTime = Time.getTime();
+        float beginTime = (float) glfwGetTime();
         float endTime;
         float deltaTime = -1f;
 
@@ -175,7 +174,7 @@ public class GameWindow {
             glfwSwapBuffers(this.glfwWindow); // swap the color buffers
 
 
-            endTime = Time.getTime();
+            endTime = (float) glfwGetTime();;
             deltaTime = endTime - beginTime;
             beginTime = endTime;
         }
@@ -186,14 +185,20 @@ public class GameWindow {
             case 0:
                 currentScene = new MenuScene();
                 currentScene.init();
+                currentScene.start();
                 break;
             case 1:
                 currentScene = new GameScene();
                 currentScene.init();
+                currentScene.start();
                 break;
             default:
                 assert false : "Unknown scene '" + newScene + "'";
         }
+    }
+
+    public static AbstractScene getScene() {
+        return getGameWindow().currentScene;
     }
 
     public void setFullscreen(boolean fullscreen) {
