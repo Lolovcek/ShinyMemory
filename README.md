@@ -1,7 +1,7 @@
 # ShinyMemory
-Reboot changing framework  from **LIBGDX** :shit:  to **LWJGL**. :bulb:
+Reboot changing framework  from **LIBGDX**   to **LWJGL**. :bulb:
 
-The project uses **Maven**. :sweat_drops: :sweat_drops:
+The project uses **Maven**.
 
 Trello with problems that need to be solved / coded / fixed are at: 
 
